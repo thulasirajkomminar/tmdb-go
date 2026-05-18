@@ -1,0 +1,74 @@
+name: Spec Sync
+
+# Weekly check of the upstream TMDB OpenAPI spec. If it has changed, the
+# committed `tmdb-api.json` is replaced, the client is regenerated, and a
+# pull request is opened for review.
+
+on:
+  schedule:
+    # Mondays at 06:00 UTC
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    name: download spec, regenerate, open PR
+    runs-on: ubuntu-latest
+    env:
+      TMDB_SPEC_URL: https://developer.themoviedb.org/openapi/tmdb-api.json
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download upstream spec
+        run: task spec:download
+
+      - name: Detect spec changes
+        id: diff
+        run: |
+          if git diff --quiet -- tmdb-api.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Upstream spec is unchanged."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Upstream spec changed — regenerating client."
+          fi
+
+      - name: Regenerate client
+        if: steps.diff.outputs.changed == 'true'
+        run: task generate
+
+      - name: Open pull request
+        if: steps.diff.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v8
+        with:
+          branch: chore/spec-sync
+          delete-branch: true
+          commit-message: "chore: sync TMDB OpenAPI spec"
+          title: "chore: sync TMDB OpenAPI spec"
+          body: |
+            Automated weekly update of the upstream TMDB OpenAPI spec.
+
+            - Pulled `tmdb-api.json` from `${{ env.TMDB_SPEC_URL }}`
+            - Regenerated every per-tag sub-package via `task generate`
+              (which tags the spec into `.codegen/` and re-runs
+              `oapi-codegen` once per sub-package)
+
+            Please review the diff carefully — breaking changes in upstream
+            schemas may require manual intervention in the facade or callers.
+          labels: |
+            dependencies
+            generated
