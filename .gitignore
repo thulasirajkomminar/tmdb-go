@@ -30,3 +30,6 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Throwaway codegen artifacts (tagged copy of the upstream spec, etc.)
+.codegen/

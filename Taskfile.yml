@@ -1,0 +1,54 @@
+version: '3'
+
+env:
+  TMDB_SPEC_URL: https://developer.themoviedb.org/openapi/tmdb-api.json
+
+tasks:
+  default:
+    cmds:
+      - task --list-all
+    silent: true
+
+  spec:download:
+    desc: Download the upstream TMDB OpenAPI spec into tmdb-api.json
+    cmds:
+      - curl -fsSL "$TMDB_SPEC_URL" | jq -c . > tmdb-api.json
+
+  generate:
+    desc: Regenerate every per-tag sub-package and tmdb.gen.go from tmdb-api.json
+    cmds:
+      - go run ./cmd/codegen
+
+  build:
+    desc: Build all packages
+    cmds:
+      - go build ./...
+
+  test:
+    desc: Run tests
+    cmds:
+      - go test ./...
+
+  tidy:
+    desc: Tidy go.mod / go.sum
+    cmds:
+      - go mod tidy
+
+  vet:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
+
+  fmt:
+    desc: Format Go sources
+    cmds:
+      - gofmt -s -w .
+
+  check:
+    desc: CI gate — regenerate, fail on drift, then vet/build/test
+    cmds:
+      - task: generate
+      - git diff --exit-code -- ':!.codegen' '*/*.gen.go' tmdb.gen.go
+      - task: vet
+      - task: build
+      - task: test
