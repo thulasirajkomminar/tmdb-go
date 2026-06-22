@@ -21,7 +21,7 @@ jobs:
     env:
       TMDB_SPEC_URL: https://developer.themoviedb.org/openapi/tmdb-api.json
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-go@v6
         with:
